@@ -22,6 +22,11 @@ public class Product {
     @Column(nullable = false)
     private BigDecimal price;
 
+    private Integer stock;
+
+    @Version
+    private Long version;
+
     private Boolean active = true;
 
     @Column(name = "created_at")

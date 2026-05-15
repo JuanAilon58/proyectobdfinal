@@ -12,12 +12,38 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - flashbuy-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d flashbuy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
 
   redis:
     image: redis:7-alpine
     container_name: flashbuy-redis
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - flashbuy-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
 
   kafka:
     image: bitnami/kafka:latest
@@ -29,12 +55,18 @@ services:
       - zookeeper
     ports:
       - "9092:9092"
+    volumes:
+      - kafka_data:/bitnami/kafka
+    networks:
+      - flashbuy-network
 
   zookeeper:
     image: bitnami/zookeeper:latest
     container_name: flashbuy-zookeeper
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
+    networks:
+      - flashbuy-network
 
   # Monitoring
   prometheus:
@@ -44,17 +76,150 @@ services:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
+    networks:
+      - flashbuy-network
 
   grafana:
     image: grafana/grafana
     container_name: flashbuy-grafana
     ports:
       - "3000:3000"
+    networks:
+      - flashbuy-network
 
-  # Microservices (Placeholders for future Dockerfiles)
-  # catalog-service:
-  #   build: ./catalog-service
-  # ...
+  # Microservices
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    ports:
+      - "8080:8080"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - CATALOG_SERVICE_URL=http://catalog-service:8081
+      - CART_SERVICE_URL=http://cart-service:8082
+      - INVENTORY_SERVICE_URL=http://inventory-service:8083
+      - ORDER_SERVICE_URL=http://order-service:8084
+      - PAYMENT_SERVICE_URL=http://payment-service:8085
+    depends_on:
+      - catalog-service
+      - cart-service
+      - order-service
+    networks:
+      - flashbuy-network
+
+  catalog-service:
+    build:
+      context: .
+      dockerfile: catalog-service/Dockerfile
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/flashbuy
+    depends_on:
+      - postgres
+    networks:
+      - flashbuy-network
+
+  cart-service:
+    build:
+      context: .
+      dockerfile: cart-service/Dockerfile
+    deploy:
+      replicas: 2
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATA_REDIS_HOST=redis
+    depends_on:
+      - redis
+    networks:
+      - flashbuy-network
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: inventory-service/Dockerfile
+    deploy:
+      replicas: 2
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/flashbuy
+    depends_on:
+      - postgres
+    networks:
+      - flashbuy-network
+
+  order-service:
+    build:
+      context: .
+      dockerfile: order-service/Dockerfile
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/flashbuy
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - postgres
+      - kafka
+    networks:
+      - flashbuy-network
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: payment-service/Dockerfile
+    deploy:
+      replicas: 2
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/flashbuy
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - postgres
+      - kafka
+    networks:
+      - flashbuy-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    deploy:
+      replicas: 2
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - kafka
+    networks:
+      - flashbuy-network
+
+networks:
+  flashbuy-network:
+    driver: bridge
 
 volumes:
   postgres_data:
+  redis_data:
+  kafka_data:

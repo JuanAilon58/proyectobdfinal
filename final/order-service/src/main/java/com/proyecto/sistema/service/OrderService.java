@@ -10,6 +10,7 @@ import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -20,6 +21,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final RestTemplate restTemplate;
+    private final KafkaTemplate<String, String> kafkaTemplate;
 
     // URLs de los otros microservicios (en un entorno real vendrían de un Config Server o Eureka)
     private final String INVENTORY_SERVICE_URL = "http://localhost:8083/api/inventory";
@@ -39,8 +41,7 @@ public class OrderService {
         }
 
         // 2. Obtener precio del producto desde catalog-service (simplificado para el ejemplo)
-        // En un flujo real, calcularíamos el total aquí
-        BigDecimal price = BigDecimal.valueOf(1299.99); // Placeholder basado en init.sql para el iPhone
+        BigDecimal price = BigDecimal.valueOf(1299.99);
 
         // 3. Crear y Guardar la Orden
         Order order = new Order();
@@ -49,7 +50,16 @@ public class OrderService {
         order.setTotalAmount(price.multiply(BigDecimal.valueOf(quantity)));
         order.setCreatedAt(LocalDateTime.now());
 
-        return orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order);
+
+        // 4. Publicar evento (Patrón Outbox simplificado)
+        try {
+            kafkaTemplate.send("order-events", "ORDER_CREATED:" + savedOrder.getOrderId());
+        } catch (Exception e) {
+            System.err.println("Error al enviar evento a Kafka: " + e.getMessage());
+        }
+
+        return savedOrder;
     }
 }
 

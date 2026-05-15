@@ -21,6 +21,12 @@ public class PaymentService {
 
     @Transactional
     public Payment processPayment(Long orderId, BigDecimal amount, Long productId, Integer quantity) {
+        // Idempotency check: Don't process if order already paid
+        if (paymentRepository.existsByOrderId(orderId)) {
+            System.out.println("Pago ya procesado anteriormente para la orden: " + orderId);
+            return paymentRepository.findByOrderId(orderId);
+        }
+
         // Simulación de procesamiento de pago
         Payment payment = new Payment();
         payment.setOrderId(orderId);
