@@ -17,6 +17,7 @@
         <module>catalog-service</module>
         <module>payment-service</module>
         <module>notification-service</module>
+        <module>cart-service</module>
         <!-- Próximamente activaremos los demás -->
         <!-- <module>catalog-service</module> -->
         <!-- <module>inventory-service</module> -->
