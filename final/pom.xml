@@ -19,9 +19,6 @@
         <module>notification-service</module>
         <module>cart-service</module>
         <module>api-gateway</module>
-        <!-- Próximamente activaremos los demás -->
-        <!-- <module>catalog-service</module> -->
-        <!-- <module>inventory-service</module> -->
     </modules>
 
     <properties>
@@ -60,4 +57,23 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>repackage</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

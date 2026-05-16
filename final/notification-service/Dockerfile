@@ -13,10 +13,11 @@ COPY payment-service/pom.xml payment-service/
 RUN mvn dependency:go-offline -B
 COPY . .
 RUN mvn clean package -DskipTests -pl notification-service -am
+RUN cp notification-service/target/notification-service-*.jar app.jar
 
 # Stage 2: Run
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /app/notification-service/target/*.jar app.jar
-EXPOSE 8086
+COPY --from=build /app/app.jar app.jar
+EXPOSE 8085
 ENTRYPOINT ["java", "-jar", "app.jar"]

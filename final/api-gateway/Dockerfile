@@ -16,10 +16,11 @@ RUN mvn dependency:go-offline -B
 # Copy source code and build
 COPY . .
 RUN mvn clean package -DskipTests -pl api-gateway -am
+RUN cp api-gateway/target/api-gateway-*.jar app.jar
 
 # Stage 2: Run
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /app/api-gateway/target/*.jar app.jar
+COPY --from=build /app/app.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

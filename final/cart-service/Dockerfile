@@ -13,10 +13,11 @@ COPY payment-service/pom.xml payment-service/
 RUN mvn dependency:go-offline -B
 COPY . .
 RUN mvn clean package -DskipTests -pl cart-service -am
+RUN cp cart-service/target/cart-service-*.jar app.jar
 
 # Stage 2: Run
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /app/cart-service/target/*.jar app.jar
+COPY --from=build /app/app.jar app.jar
 EXPOSE 8082
 ENTRYPOINT ["java", "-jar", "app.jar"]

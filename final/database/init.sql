@@ -1,26 +1,4 @@
-###DOCKER COMPOSE ###
-
-services:
-
-  postgres:
-    image: postgres:16
-    container_name: flashbuy-postgres
-
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin123
-      POSTGRES_DB: flashbuy
-
-    ports:
-      - "5432:5432"
-
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
-
-###SCRIPTS TABLAS####
+-- Database Initialization Script for FlashBuy
 
 CREATE TABLE product (
     product_id BIGSERIAL PRIMARY KEY,
@@ -37,10 +15,7 @@ CREATE TABLE inventory (
     available_stock INT NOT NULL,
     reserved_stock INT DEFAULT 0,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_inventory_product
-    FOREIGN KEY (product_id)
-    REFERENCES product(product_id)
+    CONSTRAINT fk_inventory_product FOREIGN KEY (product_id) REFERENCES product(product_id)
 );
 
 CREATE TABLE orders (
@@ -57,14 +32,8 @@ CREATE TABLE order_item (
     product_id BIGINT NOT NULL,
     quantity INT NOT NULL,
     unit_price NUMERIC(10,2) NOT NULL,
-
-    CONSTRAINT fk_order_item_order
-    FOREIGN KEY (order_id)
-    REFERENCES orders(order_id),
-
-    CONSTRAINT fk_order_item_product
-    FOREIGN KEY (product_id)
-    REFERENCES product(product_id)
+    CONSTRAINT fk_order_item_order FOREIGN KEY (order_id) REFERENCES orders(order_id),
+    CONSTRAINT fk_order_item_product FOREIGN KEY (product_id) REFERENCES product(product_id)
 );
 
 CREATE TABLE payment (
@@ -74,32 +43,13 @@ CREATE TABLE payment (
     payment_status VARCHAR(50),
     transaction_reference VARCHAR(255),
     paid_at TIMESTAMP,
-
-    CONSTRAINT fk_payment_order
-    FOREIGN KEY (order_id)
-    REFERENCES orders(order_id)
+    CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES orders(order_id)
 );
 
-#### SCRIPT INSERTAR DATOS DE PRUEBA ###
+-- Indices for performance
+CREATE INDEX idx_orders_customer ON orders(customer_identifier);
+CREATE INDEX idx_order_item_order_id ON order_item(order_id);
 
-INSERT INTO product (
-    name,
-    description,
-    price
-)
-VALUES
-(
-    'iPhone 16 Pro',
-    'Flash sale product',
-    1299.99
-);
-
-INSERT INTO inventory (
-    product_id,
-    available_stock
-)
-VALUES
-(
-    1,
-    100
-);
+-- Initial Data
+INSERT INTO product (name, description, price) VALUES ('iPhone 16 Pro', 'Flash sale product', 1299.99);
+INSERT INTO inventory (product_id, available_stock) VALUES (1, 100000); -- Large stock for load tests

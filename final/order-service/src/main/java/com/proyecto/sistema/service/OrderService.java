@@ -2,7 +2,9 @@ package com.proyecto.sistema.service;
 
 import com.proyecto.sistema.entity.Order;
 import com.proyecto.sistema.repository.OrderRepository;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -23,43 +25,43 @@ public class OrderService {
     private final RestTemplate restTemplate;
     private final KafkaTemplate<String, String> kafkaTemplate;
 
-    // URLs de los otros microservicios (en un entorno real vendrían de un Config Server o Eureka)
-    private final String INVENTORY_SERVICE_URL = "http://localhost:8083/api/inventory";
-    private final String CATALOG_SERVICE_URL = "http://localhost:8081/api/catalog";
+    @Value("${services.inventory.url:http://inventory-service:8083/api/inventory}")
+    private String inventoryServiceUrl;
+
+    @Value("${services.catalog.url:http://catalog-service:8081/api/catalog}")
+    private String catalogServiceUrl;
 
     @Transactional
+    @CircuitBreaker(name = "inventoryService", fallbackMethod = "fallbackReserveStock")
     public Order createOrder(String customerIdentifier, Long productId, Integer quantity) {
-        // 1. Reservar Stock en inventory-service
-        String reserveUrl = INVENTORY_SERVICE_URL + "/reserve?productId=" + productId + "&quantity=" + quantity;
-        try {
-            ResponseEntity<String> response = restTemplate.postForEntity(reserveUrl, null, String.class);
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                throw new RuntimeException("No se pudo reservar el stock");
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Error al conectar con el servicio de inventario: " + e.getMessage());
+        // 1. Reservar Stock en inventory-service (Ahora optimizado con Redis en el destino)
+        String reserveUrl = inventoryServiceUrl + "/reserve?productId=" + productId + "&quantity=" + quantity;
+        ResponseEntity<String> response = restTemplate.postForEntity(reserveUrl, null, String.class);
+        
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            throw new RuntimeException("No se pudo reservar el stock: " + response.getBody());
         }
 
-        // 2. Obtener precio del producto desde catalog-service (simplificado para el ejemplo)
+        // 2. Obtener precio (En un entorno real llamaríamos a catalog-service)
         BigDecimal price = BigDecimal.valueOf(1299.99);
 
         // 3. Crear y Guardar la Orden
         Order order = new Order();
         order.setCustomerIdentifier(customerIdentifier);
-        order.setOrderStatus("PENDING");
+        order.setOrderStatus("CREATED");
         order.setTotalAmount(price.multiply(BigDecimal.valueOf(quantity)));
         order.setCreatedAt(LocalDateTime.now());
 
         Order savedOrder = orderRepository.save(order);
 
-        // 4. Publicar evento (Patrón Outbox simplificado)
-        try {
-            kafkaTemplate.send("order-events", "ORDER_CREATED:" + savedOrder.getOrderId());
-        } catch (Exception e) {
-            System.err.println("Error al enviar evento a Kafka: " + e.getMessage());
-        }
+        // 4. Publicar evento para procesamiento asíncrono (Pago, Envío, etc.)
+        kafkaTemplate.send("order-events", "ORDER_CREATED:" + savedOrder.getOrderId());
 
         return savedOrder;
+    }
+
+    public Order fallbackReserveStock(String customerIdentifier, Long productId, Integer quantity, Throwable t) {
+        throw new RuntimeException("El servicio de inventario no está disponible actualmente. Inténtelo más tarde.");
     }
 }
 
