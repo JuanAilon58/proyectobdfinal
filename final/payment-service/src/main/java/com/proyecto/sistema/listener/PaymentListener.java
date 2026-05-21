@@ -23,10 +23,11 @@ public class PaymentListener {
         
         if (message.startsWith("ORDER_CREATED:")) {
             try {
-                Long orderId = Long.parseLong(message.substring("ORDER_CREATED:".length()));
+                // Formato: ORDER_CREATED:orderId:productId:quantity
+                String[] parts = message.split(":");
+                Long orderId = Long.parseLong(parts[1]);
                 
                 // Simulación: En un caso real, obtendríamos los detalles de la orden
-                // llamando al order-service o incluyendo la info en el mensaje.
                 paymentService.processPayment(orderId, BigDecimal.valueOf(1299.99), 1L, 1);
                 
                 // Publicar evento de pago exitoso

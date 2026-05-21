@@ -3,6 +3,7 @@ services:
   postgres:
     image: postgres:16
     container_name: flashbuy-postgres
+    command: postgres -c 'max_connections=1000'
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
@@ -99,6 +100,7 @@ services:
           memory: 1G
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xms768m -Xmx768m -XX:+UseG1GC
       - CATALOG_SERVICE_URL=http://catalog-service:8081
       - CART_SERVICE_URL=http://cart-service:8082
       - INVENTORY_SERVICE_URL=http://inventory-service:8083
@@ -121,13 +123,14 @@ services:
       timeout: 10s
       retries: 3
     deploy:
-      replicas: 3
+      replicas: 4
       resources:
         limits:
           cpus: '0.5'
-          memory: 512M
+          memory: 768M
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xms512m -Xmx512m -XX:+UseG1GC
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/flashbuy
     depends_on:
       - postgres
@@ -139,9 +142,14 @@ services:
       context: .
       dockerfile: cart-service/Dockerfile
     deploy:
-      replicas: 2
+      replicas: 4
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xms384m -Xmx384m -XX:+UseG1GC
       - SPRING_DATA_REDIS_HOST=redis
     depends_on:
       - redis
@@ -153,9 +161,14 @@ services:
       context: .
       dockerfile: inventory-service/Dockerfile
     deploy:
-      replicas: 2
+      replicas: 4
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 768M
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xms512m -Xmx512m -XX:+UseG1GC
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/flashbuy
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     depends_on:
@@ -169,13 +182,14 @@ services:
       context: .
       dockerfile: order-service/Dockerfile
     deploy:
-      replicas: 3
+      replicas: 4
       resources:
         limits:
           cpus: '1.0'
           memory: 1G
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xms768m -Xmx768m -XX:+UseG1GC
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/flashbuy
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     depends_on:
@@ -189,9 +203,14 @@ services:
       context: .
       dockerfile: payment-service/Dockerfile
     deploy:
-      replicas: 2
+      replicas: 4
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 768M
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xms512m -Xmx512m -XX:+UseG1GC
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/flashbuy
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     depends_on:
@@ -205,9 +224,14 @@ services:
       context: .
       dockerfile: notification-service/Dockerfile
     deploy:
-      replicas: 2
+      replicas: 4
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 384M
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xms256m -Xmx256m -XX:+UseG1GC
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     depends_on:
       - kafka

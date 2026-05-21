@@ -32,36 +32,29 @@ public class OrderService {
     private String catalogServiceUrl;
 
     @Transactional
-    @CircuitBreaker(name = "inventoryService", fallbackMethod = "fallbackReserveStock")
     public Order createOrder(String customerIdentifier, Long productId, Integer quantity) {
-        // 1. Reservar Stock en inventory-service (Ahora optimizado con Redis en el destino)
-        String reserveUrl = inventoryServiceUrl + "/reserve?productId=" + productId + "&quantity=" + quantity;
-        ResponseEntity<String> response = restTemplate.postForEntity(reserveUrl, null, String.class);
-        
-        if (!response.getStatusCode().is2xxSuccessful()) {
-            throw new RuntimeException("No se pudo reservar el stock: " + response.getBody());
-        }
-
-        // 2. Obtener precio (En un entorno real llamaríamos a catalog-service)
+        // 1. Obtener precio (En un entorno real llamaríamos a catalog-service o vendría en el request)
         BigDecimal price = BigDecimal.valueOf(1299.99);
 
-        // 3. Crear y Guardar la Orden
+        // 2. Crear y Guardar la Orden en estado PENDING (Esperando validación de inventario)
         Order order = new Order();
         order.setCustomerIdentifier(customerIdentifier);
-        order.setOrderStatus("CREATED");
+        order.setOrderStatus("PENDING");
         order.setTotalAmount(price.multiply(BigDecimal.valueOf(quantity)));
         order.setCreatedAt(LocalDateTime.now());
 
         Order savedOrder = orderRepository.save(order);
 
-        // 4. Publicar evento para procesamiento asíncrono (Pago, Envío, etc.)
-        kafkaTemplate.send("order-events", "ORDER_CREATED:" + savedOrder.getOrderId());
+        // 3. Publicar evento para procesamiento asíncrono (Inventario -> Pago -> Envío)
+        // Incluimos productId y quantity en el mensaje para el inventario
+        String message = String.format("ORDER_CREATED:%d:%d:%d", savedOrder.getOrderId(), productId, quantity);
+        kafkaTemplate.send("order-events", message);
 
         return savedOrder;
     }
 
     public Order fallbackReserveStock(String customerIdentifier, Long productId, Integer quantity, Throwable t) {
-        throw new RuntimeException("El servicio de inventario no está disponible actualmente. Inténtelo más tarde.");
+        throw new RuntimeException("El sistema de órdenes está experimentando dificultades. Inténtelo más tarde.");
     }
 }
 

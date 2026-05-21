@@ -17,6 +17,7 @@ RUN cp catalog-service/target/catalog-service-*.jar app.jar
 
 # Stage 2: Run
 FROM eclipse-temurin:21-jre-alpine
+RUN apk add --no-cache curl
 WORKDIR /app
 COPY --from=build /app/app.jar app.jar
 EXPOSE 8081
