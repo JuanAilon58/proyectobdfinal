@@ -16,27 +16,47 @@ spring:
         - id: catalog-service
           uri: ${CATALOG_SERVICE_URL:http://catalog-service:8081}
           predicates:
-            - Path=/api/catalog/**
+            - name: Path
+              args:
+                patterns:
+                  - /api/catalog
+                  - /api/catalog/**
         
         - id: cart-service
           uri: ${CART_SERVICE_URL:http://cart-service:8082}
           predicates:
-            - Path=/api/cart/**
+            - name: Path
+              args:
+                patterns:
+                  - /api/cart
+                  - /api/cart/**
 
         - id: inventory-service
           uri: ${INVENTORY_SERVICE_URL:http://inventory-service:8083}
           predicates:
-            - Path=/api/inventory/**
+            - name: Path
+              args:
+                patterns:
+                  - /api/inventory
+                  - /api/inventory/**
 
         - id: order-service
           uri: ${ORDER_SERVICE_URL:http://order-service:8084}
           predicates:
-            - Path=/api/orders/**
+            - name: Path
+              args:
+                patterns:
+                  - /api/orders
+                  - /api/orders/**
 
         - id: payment-service
           uri: ${PAYMENT_SERVICE_URL:http://payment-service:8085}
           predicates:
-            - Path=/api/payments/**
+            - name: Path
+              args:
+                patterns:
+                  - /api/payments
+                  - /api/payments/**
 
 management:
   endpoints:
